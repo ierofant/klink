@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_CXX_FLAGS -std=c++11)
 
 add_subdirectory(geser)
-include_directories(${PROJECT_SOURCE_DIR} ${LIBXML++_INCLUDE_DIRS} ${RSVG_INCLUDE_DIRS} ${GTKMM3_INCLUDE_DIRS})
+include_directories(${PROJECT_SOURCE_DIR} geser ${LIBXML++_INCLUDE_DIRS} ${RSVG_INCLUDE_DIRS} ${GTKMM3_INCLUDE_DIRS})
 
 file(GLOB SOURCE src/*.cpp)
 

@@ -7,17 +7,33 @@
 #include <gtkmm/filechooserdialog.h>
 #include "app.hpp"
 
+Glib::RefPtr<App> App::application;
+
+Glib::RefPtr<App> App::get()
+{
+    return application;
+}
+
 Glib::RefPtr<App> App::create(int _argc, char *_argv[])
 {
-    return Glib::RefPtr<App>(new App(_argc, _argv));
+    if(!application) application = Glib::RefPtr<App>(new App(_argc, _argv));
+    return application;
+}
+
+Mode App::get_mode() const
+{
+    return mode;
+}
+
+SvgWidget& App::get_svg_widget()
+{
+    return svg_widget;
 }
 
 App::App::App(int _argc, char *_argv[])
     : Gtk::Application(_argc, _argv, "ru.nilksa.klink"),
       manager(Gtk::UIManager::create()),
-      actions(Gtk::ActionGroup::create()),
-      current_element(nullptr),
-      root_group(nullptr)
+      actions(Gtk::ActionGroup::create())
 {
     actions->add(Gtk::Action::create("FileMenu", "Файл"));
     actions->add(Gtk::Action::create("Open", "Открыть"), sigc::mem_fun(*this, &App::open_file));
@@ -27,8 +43,10 @@ App::App::App(int _argc, char *_argv[])
     Gtk::RadioAction::Group tools_group;
     cursor_action = Gtk::RadioAction::create(tools_group, "Cursor", "C");
     link_point_action = Gtk::RadioAction::create(tools_group, "LinkPoint", "P");
+    link_action = Gtk::RadioAction::create(tools_group, "Link", "L");
     actions->add(cursor_action, sigc::mem_fun(*this, &App::on_cursor_mode_activate));
     actions->add(link_point_action, sigc::mem_fun(*this, &App::on_link_point_mode_activate));
+    actions->add(link_action, sigc::mem_fun(*this, &App::on_link_mode_activate));
 
     actions->add(Gtk::Action::create("GoToTop", Gtk::Stock::GOTO_TOP), sigc::mem_fun(*this, &App::on_goto_top_action_activate));
     actions->add(Gtk::Action::create("GoUp", Gtk::Stock::GO_UP), sigc::mem_fun(*this, &App::on_go_up_action_activate));
@@ -59,17 +77,16 @@ App::App::App(int _argc, char *_argv[])
     vbox->pack_start(*menubar, false, false);
     vbox->pack_start(*table);
 
-    svg_widget.set_events(Gdk::ALL_EVENTS_MASK);
-    svg_widget.signal_button_press_event().connect(sigc::mem_fun(*this, &App::on_svg_button_press_event));
+    svg_widget.signal_change_current_element().connect(sigc::mem_fun(*this, &App::on_change_current_element));
+    svg_widget.signal_change_root_group().connect(sigc::mem_fun(*this, &App::on_change_root_group));
 
     window.set_title("klink");
     window.set_position(Gtk::WIN_POS_CENTER);
     window.set_default_size(800, 600);
+    window.signal_key_press_event().connect(sigc::mem_fun(*this, &App::on_key_press_event));
     window.add(*vbox);
     window.show_all();
     add_window(window);
-
-    activate();
 }
 
 void App::open_file()
@@ -79,8 +96,7 @@ void App::open_file()
     if(fc_dialog.run() == GTK_RESPONSE_OK)
     {
 	svg_widget.set_source_file(fc_dialog.get_filename());
-	root_group = svg_widget.get_document()->get_root_node();
-	on_change_root_group();
+	svg_widget.set_root_group(svg_widget.get_document()->get_root_node());
     }
 }
 
@@ -95,15 +111,10 @@ void App::save_as()
     }
 }
 
-void App::activate()
-{
-    on_change_current_element();
-    on_change_root_group();    
-}
-
 void App::on_change_current_element()
 {
     auto go_down_action = actions->get_action("GoDown");
+    auto *current_element = svg_widget.get_current_element();
     Glib::ustring id;
     if(current_element)
     {
@@ -121,6 +132,7 @@ void App::on_change_current_element()
 void App::on_change_root_group()
 {
     auto go_up_action = actions->get_action("GoUp");
+    auto *root_group = svg_widget.get_root_group();
     if(root_group)
     {
 	go_up_action->set_sensitive(root_group->get_parent());
@@ -139,66 +151,29 @@ void App::on_link_point_mode_activate()
     mode = LINK_POINT;
 }
 
+void App::on_link_mode_activate()
+{
+    mode = LINK;
+}
+
 void App::on_goto_top_action_activate()
 {
-    root_group = svg_widget.get_document()->get_root_node();
-    on_change_root_group();
+    svg_widget.set_root_group(svg_widget.get_document()->get_root_node());
 }
 
 void App::on_go_up_action_activate()
 {
-    root_group = root_group->get_parent();
-    on_change_root_group();
+    svg_widget.set_root_group(svg_widget.get_root_group()->get_parent());
 }
 
 void App::on_go_down_action_activate()
 {
-    root_group = current_element;
-    on_change_root_group();
-
-    current_element = nullptr;    
-    on_change_current_element();
+    svg_widget.set_root_group(svg_widget.get_current_element());
+    svg_widget.set_current_element(nullptr);
 }
 
-bool App::on_svg_button_press_event(GdkEventButton *_event)
+bool App::on_key_press_event(GdkEventKey *_event)
 {
-    if(_event)
-    {
-	switch(mode)
-	{
-	    case CURSOR:
-		{
-		    auto elements = svg_widget.get_elements_at(_event->x, _event->y);
-		    if(!elements.empty())
-		    {
-			xmlpp::Element *minimal = elements.front();
-			for(auto *element:elements)
-			    if(svg_widget.get_bounds(minimal).area() > svg_widget.get_bounds(element).area())
-				minimal = element;
-			current_element = minimal;
-			on_change_current_element();
-		    }
-		}
-		break;
-
-	    case LINK_POINT:
-		{
-		    if(root_group)
-		    {
-			auto *link_point = root_group->add_child("link-point", "ksa");
-
-			std::ostringstream out;
-			out << _event->x;
-			link_point->set_attribute("cx", out.str());
-
-			out.str("");
-			out << _event->y;
-			link_point->set_attribute("cy", out.str());
-			svg_widget.refresh();
-		    }
-		}
-		break;
-	}
-    }
+    svg_widget.event((GdkEvent*) _event);
     return false;
 }

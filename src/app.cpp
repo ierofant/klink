@@ -68,10 +68,14 @@ App::App::App(int _argc, char *_argv[])
     auto *swindow = Gtk::manage(new Gtk::ScrolledWindow());
     swindow->add(svg_widget);
     
+    auto *hbox = Gtk::manage(new Gtk::Box());
+    hbox->pack_start(current_statusbar, false, false, 10);
+    hbox->pack_start(root_statusbar, false, false);
+    
     table->attach(*toolsbar, 0, 1, 0, 1, Gtk::FILL, Gtk::FILL | Gtk::EXPAND);
     table->attach(*swindow, 1, 2, 0, 1, Gtk::FILL | Gtk::EXPAND, Gtk::FILL | Gtk::EXPAND);
     table->attach(*navibar, 2, 3, 0, 1, Gtk::FILL, Gtk::FILL | Gtk::EXPAND);
-    table->attach(statusbar, 0, 3, 1, 2, Gtk::FILL | Gtk::EXPAND, Gtk::FILL);
+    table->attach(*hbox, 0, 3, 1, 2, Gtk::FILL | Gtk::EXPAND, Gtk::FILL);
 
     auto *vbox = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_VERTICAL));
     vbox->pack_start(*menubar, false, false);
@@ -93,6 +97,7 @@ void App::open_file()
 {
     Gtk::FileChooserDialog fc_dialog(window, "Выберите файл");
     fc_dialog.add_button(Gtk::Stock::OK, GTK_RESPONSE_OK);
+    fc_dialog.add_button(Gtk::Stock::CANCEL, GTK_RESPONSE_CANCEL);
     if(fc_dialog.run() == GTK_RESPONSE_OK)
     {
 	svg_widget.set_source_file(fc_dialog.get_filename());
@@ -104,6 +109,7 @@ void App::save_as()
 {
     Gtk::FileChooserDialog fc_dialog(window, "Выберите файл", Gtk::FILE_CHOOSER_ACTION_SAVE);
     fc_dialog.add_button(Gtk::Stock::OK, GTK_RESPONSE_OK);
+    fc_dialog.add_button(Gtk::Stock::CANCEL, GTK_RESPONSE_CANCEL);
     if(fc_dialog.run() == GTK_RESPONSE_OK)
     {
 	auto *doc = svg_widget.get_document();
@@ -126,19 +132,26 @@ void App::on_change_current_element()
 	go_down_action->set_sensitive(false);
 	id = "none";
     }
-    statusbar.push("current: " + id);
+    current_statusbar.push("current: " + id);
 }
 
 void App::on_change_root_group()
 {
     auto go_up_action = actions->get_action("GoUp");
     auto *root_group = svg_widget.get_root_group();
+    Glib::ustring id;
     if(root_group)
     {
 	go_up_action->set_sensitive(root_group->get_parent());
 	svg_widget.grab_items(root_group->get_children());
+	id = root_group->get_attribute_value("id");
     }
-    else go_up_action->set_sensitive(false);
+    else 
+    {
+	go_up_action->set_sensitive(false);
+	id = "none";
+    }
+    root_statusbar.push("root: " + id);
 }
 
 void App::on_cursor_mode_activate()

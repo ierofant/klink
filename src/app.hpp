@@ -69,7 +69,7 @@ class App : public Gtk::Application
 	static Glib::RefPtr<App> application;
 	Mode mode;
 	Gtk::Window window;
-	Gtk::Statusbar statusbar;
+	Gtk::Statusbar current_statusbar, root_statusbar;
 	Glib::RefPtr<Gtk::UIManager> manager;
 	Glib::RefPtr<Gtk::ActionGroup> actions;
 	Glib::RefPtr<Gtk::RadioAction> cursor_action, link_point_action, link_action;

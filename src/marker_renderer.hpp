@@ -7,6 +7,7 @@
 class MarkerRenderer
 {
     public:
+	xmlpp::Element* get_active_link_point();
 	void set_active_link_point(xmlpp::Element *_active_link_point);
 	void draw(Cairo::RefPtr<Cairo::Context> const &_cr);
 

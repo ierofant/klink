@@ -12,7 +12,6 @@ class Transform
 
     public:
 	Glib::ustring str() const;
-//	Cairo::Matrix get_matrix() const;
 	void get_translate(double &_tx, double &_ty) const;
 	void read(Glib::ustring const &_str);
 	void reset();

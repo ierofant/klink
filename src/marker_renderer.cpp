@@ -5,6 +5,11 @@
 
 #include <iostream>
 
+xmlpp::Element* MarkerRenderer::get_active_link_point()
+{
+    return active_link_point;
+}
+
 void MarkerRenderer::set_active_link_point(xmlpp::Element *_active_link_point)
 {
     active_link_point = _active_link_point;

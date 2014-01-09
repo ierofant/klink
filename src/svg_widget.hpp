@@ -4,6 +4,7 @@
 #include <gtkmm/accelgroup.h>
 #include <geser/svg_widget.hpp>
 #include "link_point_renderer.hpp"
+#include "link_renderer.hpp"
 #include "marker_renderer.hpp"
 
 class SvgWidget : public geser::SvgWidget
@@ -43,12 +44,16 @@ class SvgWidget : public geser::SvgWidget
 	virtual ElementSet get_elements_at_vfunc(int _x, int _y) const override;
 	virtual geser::Bounds get_bounds_vfunc(xmlpp::Element *_element) const override;
 	virtual void on_change_current_element();
+	virtual void on_change_root_group();
 	virtual void on_change_start_point();
 	virtual void on_change_end_point();
 
     private:
-	void add_link_point(xmlpp::Node *_parent, double _x, double _y);
+	void add_link_point(xmlpp::Node *_parent, double _x, double _y, Glib::ustring const &_title = Glib::ustring());
 	void add_link(xmlpp::Element *_start_point, xmlpp::Element *_end_point);
+	void remove_element(xmlpp::Element *_element);
+	void remove_link_point(xmlpp::Element *_link_point);
+	void remove_link(xmlpp::Element *_link);
 	geser::Bounds calculate_region(xmlpp::Element *_element, double _dx, double _dy);
 
     private:
@@ -58,6 +63,7 @@ class SvgWidget : public geser::SvgWidget
 	Glib::Property<xmlpp::Element*> property_start_point_;
 	Glib::Property<xmlpp::Element*> property_end_point_;
 	LinkPointRenderer link_point_renderer;
+	LinkRenderer link_renderer;
 	MarkerRenderer marker_renderer;
 };
 

@@ -1,9 +1,8 @@
 #include "svg_widget.hpp"
 #include "app.hpp"
-#include "transform.hpp"
 #include "support.hpp"
-
-#include <iostream>
+#include "transform.hpp"
+#include "title_dialog.hpp"
 
 SvgWidget::SvgWidget()
     : Glib::ObjectBase(typeid(*this)),
@@ -18,6 +17,7 @@ SvgWidget::SvgWidget()
 	       Gdk::SCROLL_MASK |
 	       Gdk::SMOOTH_SCROLL_MASK);
     signal_change_current_element().connect(sigc::mem_fun(*this, &SvgWidget::on_change_current_element));
+    signal_change_root_group().connect(sigc::mem_fun(*this, &SvgWidget::on_change_root_group));
     signal_change_start_point().connect(sigc::mem_fun(*this, &SvgWidget::on_change_start_point));
     signal_change_end_point().connect(sigc::mem_fun(*this, &SvgWidget::on_change_end_point));
 }
@@ -129,6 +129,7 @@ Glib::PropertyProxy<xmlpp::Element*> SvgWidget::property_end_point()
     return property_end_point_.get_proxy();
 }
 
+#include <iostream>
 bool SvgWidget::on_button_press_event(GdkEventButton *_event)
 {
     geser::SvgWidget::on_button_press_event(_event);
@@ -147,14 +148,16 @@ bool SvgWidget::on_button_press_event(GdkEventButton *_event)
 	    case LINK_POINT:
 		{
 		    auto *root_group = get_root_group();
-		    if(!element && root_group) add_link_point(root_group, x, y);
+		    if(!element && root_group)
+		    {
+			TitleDialog t_dialog;
+			if(t_dialog.run() == GTK_RESPONSE_OK) add_link_point(root_group, x, y, t_dialog.get_title());
+		    }
 		}
 		break;
 
 	    case LINK:
-		{
-		    if(is_link_point(element)) set_start_point(element);
-		}
+		if(is_link_point(element) && !has_pair(element)) set_start_point(element);
 		break;
 	}
     }
@@ -221,8 +224,13 @@ bool SvgWidget::on_motion_notify_event(GdkEventMotion *_event)
 	    case LINK:
 		{
 		    auto element = get_element_at(_event->x / scale, _event->y / scale);
-		    marker_renderer.set_active_link_point(element);
-		    if(is_link_point(element)) queue_draw();
+		    if(element != marker_renderer.get_active_link_point() &&
+		       (element == nullptr || is_link_point(element)))
+		    {
+			marker_renderer.set_active_link_point(has_pair(element) ? nullptr : element);
+			queue_draw();
+		    }
+
 		    if(is_link_point(current_element) && get_start_point()) queue_draw();
 		}
 		break;
@@ -239,13 +247,8 @@ bool SvgWidget::on_key_press_event(GdkEventKey *_event)
 	xmlpp::Element *current_element = get_current_element();
 	if(current_element)
 	{
-	    xmlpp::Node *parent = current_element->get_parent();
-	    if(parent) 
-	    {
-		parent->remove_child(current_element);
-		set_current_element(nullptr);
-		refresh();
-	    }
+	    remove_element(current_element);
+	    set_current_element(nullptr);
 	}
     }
     return false;
@@ -257,6 +260,7 @@ bool SvgWidget::on_draw(Cairo::RefPtr<Cairo::Context> const &_cr)
 
     link_point_renderer.set_document(get_document());
     link_point_renderer.draw(_cr);
+    link_renderer.draw(_cr);
     marker_renderer.draw(_cr);
     return false;
 }
@@ -273,8 +277,15 @@ SvgWidget::ElementSet SvgWidget::get_elements_at_vfunc(int _x, int _y) const
 	    break;
 
 	case LINK_POINT:
-	case LINK:
 	    elements = link_point_renderer.get_elements_at(_x, _y);
+	    break;
+
+	case LINK:
+	    {
+		auto link_points = link_point_renderer.get_elements_at(_x, _y);
+		auto link = link_renderer.get_elements_at(_x, _y);
+		std::merge(link_points.begin(), link_points.end(), link.begin(), link.end(), std::back_inserter(elements));
+	    }
 	    break;
     }
     return elements;
@@ -283,7 +294,11 @@ SvgWidget::ElementSet SvgWidget::get_elements_at_vfunc(int _x, int _y) const
 geser::Bounds SvgWidget::get_bounds_vfunc(xmlpp::Element *_element) const
 {
     geser::Bounds bounds;
-    if(_element && _element->get_namespace_prefix() == "ksa") bounds = link_point_renderer.get_bounds(_element);
+    if(_element && _element->get_namespace_prefix() == "ksa")
+    {
+	if(_element->get_name() == "link-point") bounds = link_point_renderer.get_bounds(_element);
+	else if(_element->get_name() == "link") bounds = link_renderer.get_bounds(_element);
+    }
     else bounds = geser::SvgWidget::get_bounds_vfunc(_element);
     return bounds;
 }
@@ -291,6 +306,12 @@ geser::Bounds SvgWidget::get_bounds_vfunc(xmlpp::Element *_element) const
 void SvgWidget::on_change_current_element()
 {
     queue_draw();
+}
+
+void SvgWidget::on_change_root_group()
+{
+    xmlpp::Element *root_group = get_root_group();
+    if(root_group) grab_items(root_group->get_children());
 }
 
 void SvgWidget::on_change_start_point()
@@ -302,15 +323,16 @@ void SvgWidget::on_change_end_point()
 {
     auto *start_point = get_start_point();
     auto *end_point = get_end_point();
-    if(start_point && end_point) add_link(start_point, end_point);
+    add_link(start_point, end_point);
 }
 
-void SvgWidget::add_link_point(xmlpp::Node *_parent, double _x, double _y)
+void SvgWidget::add_link_point(xmlpp::Node *_parent, double _x, double _y, Glib::ustring const &_title)
 {
     if(_parent)
     {
 	auto *link_point = _parent->add_child("link-point", "ksa");
 	link_point->set_attribute("id", link_point_renderer.unique_id());
+	link_point->set_attribute("title", _title, "ksa");
 
 	std::ostringstream out;
 	out << _x;
@@ -326,15 +348,77 @@ void SvgWidget::add_link_point(xmlpp::Node *_parent, double _x, double _y)
 
 void SvgWidget::add_link(xmlpp::Element *_start_point, xmlpp::Element *_end_point)
 {
-    auto *parent1 = _start_point->get_parent();
-    auto *parent2 = _end_point->get_parent();
-    if(parent1 && parent2)
+    if(_start_point && 
+       _end_point &&
+       _start_point != _end_point &&
+       !has_pair(_start_point) &&
+       !has_pair(_end_point))
     {
-	_start_point->set_attribute("pair-id", _end_point->get_attribute_value("id", "ksa"), "ksa");
-	_end_point->set_attribute("pair-id", _start_point->get_attribute_value("id", "ksa"), "ksa");
+	auto *parent1 = _start_point->get_parent();
+	auto *parent2 = _end_point->get_parent();
+	if(parent1 && parent2)
+	{
+	    _start_point->set_attribute("pair-id", _end_point->get_attribute_value("id"), "ksa");
+	    _end_point->set_attribute("pair-id", _start_point->get_attribute_value("id"), "ksa");
 
-	parent1->add_child("link", "ksa");
-	parent2->add_child("link", "ksa");
+	    Glib::ustring root_id = get_document()->get_root_node()->get_attribute_value("id");
+	    Glib::ustring id1 = parent1->get_attribute_value("id");
+	    Glib::ustring id2 = parent2->get_attribute_value("id");
+	    Glib::ustring title1 = _start_point->get_attribute_value("title", "ksa");
+	    Glib::ustring title2 = _end_point->get_attribute_value("title", "ksa");
+
+	    auto *link1 = parent1->add_child("link", "ksa");
+	    link1->set_attribute("link-from", title1, "ksa");
+	    link1->set_attribute("link-to", title2, "ksa");
+	    link1->set_attribute("object-id", root_id + '@' + id2, "ksa");
+
+	    auto *link2 = parent2->add_child("link", "ksa");
+	    link2->set_attribute("link-from", title2, "ksa");
+	    link2->set_attribute("link-to", title1, "ksa");
+	    link2->set_attribute("object-id", root_id + '@' + id1, "ksa");
+	}
+    }
+}
+
+void SvgWidget::remove_element(xmlpp::Element *_element)
+{
+    if(is_link_point(_element)) remove_link_point(_element);
+    else if(is_link(_element)) remove_link(_element);
+    else
+    {
+	remove_node(_element);
+	auto *root_group = get_root_group();
+	if(root_group) grab_items(root_group->get_children());
+    }
+}
+
+void SvgWidget::remove_link_point(xmlpp::Element *_link_point)
+{
+    if(is_link_point(_link_point))
+    {
+	auto *link = get_link(_link_point);
+	remove_link(link);
+
+	remove_node(_link_point);
+    }
+}
+
+void SvgWidget::remove_link(xmlpp::Element *_link)
+{
+    if(is_link(_link))
+    {
+	xmlpp::Element *start_point = nullptr;
+	xmlpp::Element *end_point = nullptr;
+	get_points(_link, start_point, end_point);
+	if(start_point) start_point->remove_attribute("pair-id", "ksa");
+	if(end_point)
+	{
+	    xmlpp::Element *link = get_link(end_point);
+	    remove_node(link);
+
+	    end_point->remove_attribute("pair-id", "ksa");
+	}
+	remove_node(_link);
     }
 }
 

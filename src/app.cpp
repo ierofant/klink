@@ -30,6 +30,11 @@ SvgWidget& App::get_svg_widget()
     return svg_widget;
 }
 
+int App::run()
+{
+    return Gtk::Application::run(window);
+}
+
 App::App::App(int _argc, char *_argv[])
     : Gtk::Application(_argc, _argv, "ru.nilksa.klink"),
       manager(Gtk::UIManager::create()),
@@ -89,8 +94,7 @@ App::App::App(int _argc, char *_argv[])
     window.set_default_size(800, 600);
     window.signal_key_press_event().connect(sigc::mem_fun(*this, &App::on_key_press_event));
     window.add(*vbox);
-    window.show_all();
-    add_window(window);
+    window.show_all_children();
 }
 
 void App::open_file()
@@ -143,7 +147,6 @@ void App::on_change_root_group()
     if(root_group)
     {
 	go_up_action->set_sensitive(root_group->get_parent());
-	svg_widget.grab_items(root_group->get_children());
 	id = root_group->get_attribute_value("id");
     }
     else 

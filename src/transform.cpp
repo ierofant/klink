@@ -30,13 +30,6 @@ Glib::ustring Transform::str() const
     return out.str(); 
 }
 
-/*
-Cairo::Matrix Transform::get_matrix() const
-{
-    return Cairo::Matrix(a, b, c, d, e, f);
-}
-*/
-
 void Transform::get_translate(double &_tx, double &_ty) const
 {
     _tx = c;

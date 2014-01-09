@@ -48,6 +48,7 @@ class App : public Gtk::Application
     public:
 	Mode get_mode() const;
 	SvgWidget& get_svg_widget();
+	int run();
 
     protected:
 	App(int _argc, char *_argv[]);

@@ -89,8 +89,18 @@ void LinkPointRenderer::draw(Cairo::RefPtr<Cairo::Context> const &_cr)
 	    xmlpp::Element *element = static_cast<xmlpp::Element*>(node);
 	    get_center(element, cx, cy);
 
+	    _cr->save();
+	    _cr->set_source_rgb(0, 255, 255);
 	    _cr->arc(cx, cy, link_point_r, 0, 2 * M_PI);
-	    _cr->stroke();
+
+	    if(has_pair(element))
+	    {
+		_cr->stroke_preserve();
+		_cr->fill();
+	    }
+	    else _cr->stroke();
+	    
+	    _cr->restore();
 	}
     }
 }

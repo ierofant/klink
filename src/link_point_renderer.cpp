@@ -91,6 +91,7 @@ void LinkPointRenderer::draw(Cairo::RefPtr<Cairo::Context> const &_cr)
 
 	    _cr->save();
 	    _cr->set_source_rgb(0, 255, 255);
+	    _cr->move_to(cx + link_point_r, cy);
 	    _cr->arc(cx, cy, link_point_r, 0, 2 * M_PI);
 
 	    if(has_pair(element))
@@ -102,5 +103,6 @@ void LinkPointRenderer::draw(Cairo::RefPtr<Cairo::Context> const &_cr)
 	    
 	    _cr->restore();
 	}
+
     }
 }

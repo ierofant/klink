@@ -7,8 +7,6 @@
 #include <gtkmm/filechooserdialog.h>
 #include "app.hpp"
 
-#include <iostream>
-
 Glib::RefPtr<App> App::application;
 
 Glib::RefPtr<App> App::get()
@@ -51,20 +49,21 @@ App::App::App(int _argc, char *_argv[])
 {
     actions->add(Gtk::Action::create("FileMenu", "Файл"));
     actions->add(Gtk::Action::create("Open", "Открыть"), sigc::mem_fun(*this, &App::open_file));
+    actions->add(Gtk::Action::create("Save", "Сохранить"), sigc::mem_fun(*this, &App::save));
     actions->add(Gtk::Action::create("SaveAs", "Сохранить как"), sigc::mem_fun(*this, &App::save_as));
     actions->add(Gtk::Action::create("Quit", "Выход"), sigc::mem_fun(*this, &App::quit));
 
     Gtk::RadioAction::Group tools_group;
-    cursor_action = Gtk::RadioAction::create(tools_group, "Cursor", "C");
-//    link_point_action = Gtk::RadioAction::create(tools_group, "LinkPoint", "P");
-    link_action = Gtk::RadioAction::create(tools_group, "Link", "L");
+    auto cursor_action = Gtk::RadioAction::create(tools_group, "Cursor", "C");
+    auto link_action = Gtk::RadioAction::create(tools_group, "Link", "L");
     actions->add(cursor_action, sigc::mem_fun(*this, &App::on_change_mode));
-//    actions->add(link_point_action, sigc::mem_fun(*this, &App::on_link_point_mode_activate));
     actions->add(link_action);
 
     actions->add(Gtk::Action::create("GoToTop", Gtk::Stock::GOTO_TOP), sigc::mem_fun(*this, &App::on_goto_top_action_activate));
     actions->add(Gtk::Action::create("GoUp", Gtk::Stock::GO_UP), sigc::mem_fun(*this, &App::on_go_up_action_activate));
     actions->add(Gtk::Action::create("GoDown", Gtk::Stock::GO_DOWN), sigc::mem_fun(*this, &App::on_go_down_action_activate));
+
+    actions->get_action("Save")->set_sensitive(false);
 
     manager->insert_action_group(actions);
     manager->add_ui_from_string(ui_info);
@@ -112,7 +111,21 @@ void App::open_file()
     Gtk::FileChooserDialog fc_dialog(window, "Выберите файл");
     fc_dialog.add_button(Gtk::Stock::OK, GTK_RESPONSE_OK);
     fc_dialog.add_button(Gtk::Stock::CANCEL, GTK_RESPONSE_CANCEL);
-    if(fc_dialog.run() == GTK_RESPONSE_OK) svg_widget.set_source_file(fc_dialog.get_filename());
+    if(fc_dialog.run() == GTK_RESPONSE_OK)
+    {
+	filename = fc_dialog.get_filename();
+	svg_widget.set_source_file(filename);
+	actions->get_action("Save")->set_sensitive(true);
+    }
+}
+
+void App::save()
+{
+    if(!filename.empty())
+    {
+	auto *doc = svg_widget.get_document();
+	if(doc) doc->write_to_file_formatted(filename);
+    }
 }
 
 void App::save_as()
@@ -165,6 +178,8 @@ void App::on_change_root_group()
 
 void App::on_change_mode()
 {
+    auto cursor_action = Glib::RefPtr<Gtk::RadioAction>::cast_static(actions->get_action("Cursor"));
+    auto link_action = Glib::RefPtr<Gtk::RadioAction>::cast_static(actions->get_action("Link"));
     if(cursor_action->get_active()) on_cursor_mode_activate();
     else if(link_action->get_active()) on_link_mode_activate();
 }
@@ -172,11 +187,6 @@ void App::on_change_mode()
 void App::on_cursor_mode_activate()
 {
     mode = CURSOR;
-}
-
-void App::on_link_point_mode_activate()
-{
-    mode = LINK_POINT;
 }
 
 void App::on_link_mode_activate()

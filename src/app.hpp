@@ -14,13 +14,13 @@ const char constexpr *ui_info =
     u8"	<menubar name='MenuBar'>"
     u8"		<menu action='FileMenu'>"
     u8"			<menuitem action='Open'/>"
+    u8"			<menuitem action='Save'/>"
     u8"			<menuitem action='SaveAs'/>"
     u8"			<menuitem action='Quit'/>"
     u8"		</menu>"
     u8"	</menubar>"
     u8"	<toolbar name='ToolsBar'>"
     u8"		<toolitem action='Cursor'/>"
-    u8"		<!--toolitem action='LinkPoint'/-->"
     u8"		<toolitem action='Link'/>"
     u8"	</toolbar>"
     u8"	<toolbar name='NavigateBar'>"
@@ -33,7 +33,6 @@ const char constexpr *ui_info =
 enum Mode
 {
     CURSOR,
-    LINK_POINT,
     LINK
 };
 
@@ -57,12 +56,12 @@ class App : public Gtk::Application
 
     private:
 	void open_file();
+	void save();
 	void save_as();
 	void on_change_current_element();
 	void on_change_root_group();
 	void on_change_mode();
 	void on_cursor_mode_activate();
-	void on_link_point_mode_activate();
 	void on_link_mode_activate();
 	void on_goto_top_action_activate();
 	void on_go_up_action_activate();
@@ -76,8 +75,8 @@ class App : public Gtk::Application
 	Gtk::Statusbar current_statusbar, root_statusbar;
 	Glib::RefPtr<Gtk::UIManager> manager;
 	Glib::RefPtr<Gtk::ActionGroup> actions;
-	Glib::RefPtr<Gtk::RadioAction> cursor_action, link_point_action, link_action;
 	SvgWidget svg_widget;
+	Glib::ustring filename;
 };
 
 #endif //KLINK_APP_INCLUDED

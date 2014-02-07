@@ -3,9 +3,6 @@
 #include "support.hpp"
 #include "transform.hpp"
 #include "style.hpp"
-#include "title_dialog.hpp"
-
-#include <iostream>
 
 SvgWidget::SvgWidget()
     : Glib::ObjectBase(typeid(*this)),
@@ -154,17 +151,6 @@ bool SvgWidget::on_button_press_event(GdkEventButton *_event)
 
 	switch(app->get_mode())
 	{
-	    case LINK_POINT:
-		{
-		    auto *root_group = get_root_group();
-		    if(!element && root_group)
-		    {
-			TitleDialog t_dialog;
-			if(t_dialog.run() == GTK_RESPONSE_OK) add_link_point(root_group, x, y, t_dialog.get_title());
-		    }
-		}
-		break;
-
 	    case LINK:
 		if(is_link_point(element) && !has_pair(element)) set_start_point(element);
 		break;
@@ -220,23 +206,10 @@ bool SvgWidget::on_motion_notify_event(GdkEventMotion *_event)
 	switch(app->get_mode())
 	{
 	    case CURSOR:
-	    case LINK_POINT:
-		if(is_link_point(current_element) && _event->state & GDK_BUTTON1_MASK)
-		{
-		    Transform t1(current_element->get_attribute_value("transform")), t2;
-		    t2.translate(dx, dy);
-		    t2.merge(t1);
-		    if(!t2.str().empty()) 
-		    {
-	    		current_element->set_attribute("transform", t2.str());
-			queue_draw();
-    		    }
-		}
-		break;
-
 	    case LINK:
 		{
-		    auto element = get_element_at(_event->x / scale, _event->y / scale);
+		    auto element = get_element_at(x_pos / scale, y_pos / scale);
+
 		    if(element != marker_renderer.get_active_link_point() &&
 		       (element == nullptr || is_link_point(element)))
 		    {
@@ -244,7 +217,17 @@ bool SvgWidget::on_motion_notify_event(GdkEventMotion *_event)
 			queue_draw();
 		    }
 
-		    if(is_link_point(current_element) && get_start_point()) queue_draw();
+		    if(is_link_point(current_element))
+		    {
+			if(!get_start_point() && _event->state == GDK_BUTTON1_MASK)
+			{
+			    auto *pair = get_pair(current_element);
+			    remove_element(get_link(current_element));
+			    remove_element(get_link(pair));
+			    set_start_point(pair);
+			}
+			queue_draw();
+		    }
 		}
 		break;
 	}
@@ -270,9 +253,6 @@ bool SvgWidget::on_key_press_event(GdkEventKey *_event)
 bool SvgWidget::on_draw(Cairo::RefPtr<Cairo::Context> const &_cr)
 {
     geser::SvgWidget::on_draw(_cr);
-
-    link_point_renderer.set_document(get_document());
-    link_point_renderer.draw(_cr);
     link_renderer.draw(_cr);
     marker_renderer.draw(_cr);
     return false;
@@ -287,10 +267,6 @@ SvgWidget::ElementSet SvgWidget::get_elements_at_vfunc(int _x, int _y) const
     {
 	case CURSOR:
 	    elements = geser::SvgWidget::get_elements_at_vfunc(_x, _y);
-	    break;
-
-	case LINK_POINT:
-	    elements = link_point_renderer.get_elements_at(_x, _y);
 	    break;
 
 	case LINK:
@@ -309,8 +285,7 @@ geser::Bounds SvgWidget::get_bounds_vfunc(xmlpp::Element *_element) const
     geser::Bounds bounds;
     if(_element && _element->get_namespace_prefix() == "ksa")
     {
-	if(_element->get_name() == "link-point") bounds = link_point_renderer.get_bounds(_element);
-	else if(_element->get_name() == "link") bounds = link_renderer.get_bounds(_element);
+	if(_element->get_name() == "link") bounds = link_renderer.get_bounds(_element);
     }
     else bounds = geser::SvgWidget::get_bounds_vfunc(_element);
     return bounds;
@@ -333,7 +308,7 @@ void SvgWidget::on_change_mode()
 
 void SvgWidget::on_cursor_mode_activate()
 {
-
+    set_root_group(get_root_node());
 }
 
 void SvgWidget::on_link_mode_activate()
@@ -367,26 +342,6 @@ void SvgWidget::on_change_end_point()
     auto *start_point = get_start_point();
     auto *end_point = get_end_point();
     add_link(start_point, end_point);
-}
-
-void SvgWidget::add_link_point(xmlpp::Node *_parent, double _x, double _y, Glib::ustring const &_title)
-{
-    if(_parent)
-    {
-	auto *link_point = _parent->add_child("link-point", "ksa");
-	link_point->set_attribute("id", link_point_renderer.unique_id());
-	link_point->set_attribute("title", _title, "ksa");
-
-	std::ostringstream out;
-	out << _x;
-	link_point->set_attribute("cx", out.str());
-
-	out.str("");
-	out << _y;
-	link_point->set_attribute("cy", out.str());
-
-	set_current_element(link_point);
-    }
 }
 
 void SvgWidget::add_link(xmlpp::Element *_start_point, xmlpp::Element *_end_point)
@@ -439,25 +394,14 @@ void SvgWidget::add_link(xmlpp::Element *_start_point, xmlpp::Element *_end_poin
 
 void SvgWidget::remove_element(xmlpp::Element *_element)
 {
-    if(is_link_point(_element)) remove_link_point(_element);
-    else if(is_link(_element)) remove_link(_element);
+    if(is_link(_element)) remove_link(_element);
     else
     {
 	remove_node(_element);
-	auto *root_group = get_root_group();
-	if(root_group) grab_items(root_group->get_children());
-    }
-    refresh();
-}
+	refresh();
 
-void SvgWidget::remove_link_point(xmlpp::Element *_link_point)
-{
-    if(is_link_point(_link_point))
-    {
-	auto *link = get_link(_link_point);
-	remove_link(link);
-
-	remove_node(_link_point);
+	auto app = App::get();
+	if(app->get_mode() == CURSOR) grab_items(get_root_group()->get_children());
     }
 }
 

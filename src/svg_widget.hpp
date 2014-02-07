@@ -7,6 +7,8 @@
 #include "link_renderer.hpp"
 #include "marker_renderer.hpp"
 
+class App;
+
 class SvgWidget : public geser::SvgWidget
 {
     public:
@@ -17,6 +19,7 @@ class SvgWidget : public geser::SvgWidget
 	bool is_holding() const;
 	double get_x_pos() const;
 	double get_y_pos() const;
+	void set_source_file(Glib::ustring const &_filename);
 	xmlpp::Element* get_current_element();
 	void set_current_element(xmlpp::Element *_element);
 	xmlpp::Element* get_root_group();
@@ -43,6 +46,9 @@ class SvgWidget : public geser::SvgWidget
 	virtual bool on_draw(Cairo::RefPtr<Cairo::Context> const &_cr) override;
 	virtual ElementSet get_elements_at_vfunc(int _x, int _y) const override;
 	virtual geser::Bounds get_bounds_vfunc(xmlpp::Element *_element) const override;
+	virtual void on_change_mode();
+	virtual void on_cursor_mode_activate();
+	virtual void on_link_mode_activate();
 	virtual void on_change_current_element();
 	virtual void on_change_root_group();
 	virtual void on_change_start_point();
@@ -65,6 +71,8 @@ class SvgWidget : public geser::SvgWidget
 	LinkPointRenderer link_point_renderer;
 	LinkRenderer link_renderer;
 	MarkerRenderer marker_renderer;
+
+    friend class App;
 };
 
 #endif //KLINK_SVG_WIDGET_HPP

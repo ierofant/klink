@@ -1,6 +1,7 @@
 #ifndef KLINK_APP_INCLUDED
 #define KLINK_APP_INCLUDED
 
+#include <glibmm/propertyproxy.h>
 #include <gtkmm/application.h>
 #include <gtkmm/window.h>
 #include <gtkmm/statusbar.h>
@@ -19,7 +20,7 @@ const char constexpr *ui_info =
     u8"	</menubar>"
     u8"	<toolbar name='ToolsBar'>"
     u8"		<toolitem action='Cursor'/>"
-    u8"		<toolitem action='LinkPoint'/>"
+    u8"		<!--toolitem action='LinkPoint'/-->"
     u8"		<toolitem action='Link'/>"
     u8"	</toolbar>"
     u8"	<toolbar name='NavigateBar'>"
@@ -49,6 +50,7 @@ class App : public Gtk::Application
 	Mode get_mode() const;
 	SvgWidget& get_svg_widget();
 	int run();
+	Glib::SignalProxyProperty signal_change_mode();
 
     protected:
 	App(int _argc, char *_argv[]);
@@ -58,6 +60,7 @@ class App : public Gtk::Application
 	void save_as();
 	void on_change_current_element();
 	void on_change_root_group();
+	void on_change_mode();
 	void on_cursor_mode_activate();
 	void on_link_point_mode_activate();
 	void on_link_mode_activate();
@@ -68,7 +71,7 @@ class App : public Gtk::Application
 
     private:
 	static Glib::RefPtr<App> application;
-	Mode mode;
+	Glib::Property<Mode> mode;
 	Gtk::Window window;
 	Gtk::Statusbar current_statusbar, root_statusbar;
 	Glib::RefPtr<Gtk::UIManager> manager;

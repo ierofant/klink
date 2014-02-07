@@ -51,12 +51,15 @@ void MarkerRenderer::draw_active_link_point_marker(Cairo::RefPtr<Cairo::Context>
     auto app = App::get();
     if(_cr && app && app->get_mode() == LINK && active_link_point)
     {
-	double cx, cy;
-	get_center(active_link_point, cx, cy);
+	Transform transform(*active_link_point);
+	double cx = std::atof(active_link_point->get_attribute_value("cx").c_str());
+	double cy = std::atof(active_link_point->get_attribute_value("cy").c_str());
+	double r = std::atof(active_link_point->get_attribute_value("r").c_str());
 
 	_cr->save();
 	_cr->set_source_rgb(255, 0, 0);
-	_cr->arc(cx, cy, 4, 0, 2 * M_PI);
+	_cr->transform(transform.get_matrix());
+	_cr->arc(cx, cy, r, 0, 2 * M_PI);
 	_cr->fill();
 	_cr->restore();
     }
@@ -72,13 +75,20 @@ void MarkerRenderer::draw_link_hint_marker(Cairo::RefPtr<Cairo::Context> const &
 	if(start_point)
 	{
 	    double scale = svg_widget.get_scale();
-	    double cx, cy;
-	    get_center(start_point, cx, cy);
+	    double cx = std::atof(start_point->get_attribute_value("cx").c_str());
+	    double cy = std::atof(start_point->get_attribute_value("cy").c_str());
+	    Transform transform(*start_point);
 
 	    _cr->save();
 	    _cr->set_source_rgb(0, 0, 0);
 	    _cr->set_line_width(line_width);
+
+	    _cr->save();
+	    _cr->transform(transform.get_matrix());
 	    _cr->move_to(cx, cy);
+	    _cr->restore();
+
+
 	    _cr->line_to(svg_widget.get_x_pos() / scale, svg_widget.get_y_pos() / scale);
 	    _cr->stroke();
 	    _cr->restore();

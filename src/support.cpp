@@ -2,6 +2,8 @@
 #include "support.hpp"
 #include "transform.hpp"
 
+#include <iostream>
+
 static const xmlpp::Element* get_root(const xmlpp::Node *_node)
 {
     const xmlpp::Element *retval = nullptr;
@@ -20,10 +22,15 @@ void remove_node(xmlpp::Node *_node)
 
 bool is_link_point(const xmlpp::Node *_node)
 {
-    return (_node && 
-	    _node->cobj()->type == XML_ELEMENT_NODE &&
-	    _node->get_namespace_prefix() == "ksa" && 
-	    _node->get_name() == "link-point");
+    bool retval = false;
+    if(_node && _node->cobj()->type == XML_ELEMENT_NODE)
+    {
+	const auto *element = static_cast<const xmlpp::Element*>(_node);
+	auto *attr = element->get_attribute("mode", "ksa");
+	if(attr && attr->get_value() == "link-point") retval = true;
+    }
+
+    return retval;
 }
 
 bool get_center(const xmlpp::Element *_element, double &_cx, double &_cy)
@@ -31,12 +38,8 @@ bool get_center(const xmlpp::Element *_element, double &_cx, double &_cy)
     bool retval = false;    
     if(is_link_point(_element))
     {
-	Transform transform(_element->get_attribute_value("transform"));    
-	double tx, ty;
-	transform.get_translate(tx, ty);
-
-	_cx = std::atof(_element->get_attribute_value("cx").c_str()) + tx;
-	_cy = std::atof(_element->get_attribute_value("cy").c_str()) + ty;
+	_cx = std::atof(_element->get_attribute_value("cx").c_str());
+	_cy = std::atof(_element->get_attribute_value("cy").c_str());
 	retval = true;
     }
     return retval;
@@ -45,7 +48,7 @@ bool get_center(const xmlpp::Element *_element, double &_cx, double &_cy)
 bool has_pair(const xmlpp::Element *_element)
 {
     bool retval = false;
-    if(is_link_point(_element)) retval = !_element->get_attribute_value("pair-id", "ksa").empty();
+    if(is_link_point(_element)) retval = !_element->get_attribute_value("pairId", "ksa").empty();
     return retval;
 };
 
@@ -55,8 +58,8 @@ xmlpp::Element* get_pair(const xmlpp::Element *_element)
     const xmlpp::Element *root = get_root(_element);
     if(has_pair(_element) && root)
     {
-	Glib::ustring pair_id = _element->get_attribute_value("pair-id", "ksa");
-	auto nodes = root->find("./descendant::ksa:link-point[@id = '" + pair_id + "']", ns_map);
+	Glib::ustring pair_id = _element->get_attribute_value("pairId", "ksa");
+	auto nodes = root->find("./descendant::*[@ksa:mode='link-point' and @id='" + pair_id + "']", ns_map);
 	if(!nodes.empty()) pair = static_cast<xmlpp::Element*>(nodes.front());
     }
     return pair;
@@ -69,7 +72,7 @@ xmlpp::Element* get_link(const xmlpp::Element *_link_point)
     if(has_pair(_link_point) && parent)
     {
 	Glib::ustring title = _link_point->get_attribute_value("title", "ksa");
-	auto nodes = parent->find("./ksa:link[@ksa:link-from = '" +  title + "']", ns_map);
+	auto nodes = parent->find("./ksa:link[@ksa:linkFrom = '" +  title + "']", ns_map);
 	if(!nodes.empty()) link = static_cast<xmlpp::Element*>(nodes.front());
     }
     return link;
@@ -88,14 +91,14 @@ void get_points(xmlpp::Element *_link, xmlpp::Element *&_start_point, xmlpp::Ele
     _start_point = _end_point = nullptr;
     if(is_link(_link))
     {
-	Glib::ustring start_title = _link->get_attribute_value("link-from", "ksa");
-	Glib::ustring end_title = _link->get_attribute_value("link-to", "ksa");
-	Glib::ustring object_id = _link->get_attribute_value("object-id", "ksa");
+	Glib::ustring start_title = _link->get_attribute_value("linkFrom", "ksa");
+	Glib::ustring end_title = _link->get_attribute_value("linkTo", "ksa");
+	Glib::ustring object_id = _link->get_attribute_value("object", "ksa");
 	const xmlpp::Element *start_parent = _link->get_parent();
 
 	if(start_parent)
 	{
-	    auto nodes = start_parent->find("./ksa:link-point[@ksa:title = '" + start_title + "']", ns_map);
+	    auto nodes = start_parent->find("./*[@ksa:mode='link-point' and @ksa:title='" + start_title + "']", ns_map);
 	    if(!nodes.empty())
 	    {
 		_start_point = static_cast<xmlpp::Element*>(nodes.front());

@@ -7,6 +7,8 @@
 #include <gtkmm/filechooserdialog.h>
 #include "app.hpp"
 
+#include <iostream>
+
 Glib::RefPtr<App> App::application;
 
 Glib::RefPtr<App> App::get()
@@ -35,8 +37,15 @@ int App::run()
     return Gtk::Application::run(window);
 }
 
+Glib::SignalProxyProperty App::signal_change_mode()
+{
+    return mode.get_proxy().signal_changed();
+}
+
 App::App::App(int _argc, char *_argv[])
-    : Gtk::Application(_argc, _argv, "ru.nilksa.klink"),
+    : Glib::ObjectBase(typeid(*this)),
+      Gtk::Application(_argc, _argv, "ru.nilksa.klink"),
+      mode(*this, "mode", CURSOR),
       manager(Gtk::UIManager::create()),
       actions(Gtk::ActionGroup::create())
 {
@@ -47,11 +56,11 @@ App::App::App(int _argc, char *_argv[])
 
     Gtk::RadioAction::Group tools_group;
     cursor_action = Gtk::RadioAction::create(tools_group, "Cursor", "C");
-    link_point_action = Gtk::RadioAction::create(tools_group, "LinkPoint", "P");
+//    link_point_action = Gtk::RadioAction::create(tools_group, "LinkPoint", "P");
     link_action = Gtk::RadioAction::create(tools_group, "Link", "L");
-    actions->add(cursor_action, sigc::mem_fun(*this, &App::on_cursor_mode_activate));
-    actions->add(link_point_action, sigc::mem_fun(*this, &App::on_link_point_mode_activate));
-    actions->add(link_action, sigc::mem_fun(*this, &App::on_link_mode_activate));
+    actions->add(cursor_action, sigc::mem_fun(*this, &App::on_change_mode));
+//    actions->add(link_point_action, sigc::mem_fun(*this, &App::on_link_point_mode_activate));
+    actions->add(link_action);
 
     actions->add(Gtk::Action::create("GoToTop", Gtk::Stock::GOTO_TOP), sigc::mem_fun(*this, &App::on_goto_top_action_activate));
     actions->add(Gtk::Action::create("GoUp", Gtk::Stock::GO_UP), sigc::mem_fun(*this, &App::on_go_up_action_activate));
@@ -88,6 +97,7 @@ App::App::App(int _argc, char *_argv[])
 
     svg_widget.signal_change_current_element().connect(sigc::mem_fun(*this, &App::on_change_current_element));
     svg_widget.signal_change_root_group().connect(sigc::mem_fun(*this, &App::on_change_root_group));
+    signal_change_mode().connect(sigc::mem_fun(svg_widget, &SvgWidget::on_change_mode));
 
     window.set_title("klink");
     window.set_position(Gtk::WIN_POS_CENTER);
@@ -102,11 +112,7 @@ void App::open_file()
     Gtk::FileChooserDialog fc_dialog(window, "Выберите файл");
     fc_dialog.add_button(Gtk::Stock::OK, GTK_RESPONSE_OK);
     fc_dialog.add_button(Gtk::Stock::CANCEL, GTK_RESPONSE_CANCEL);
-    if(fc_dialog.run() == GTK_RESPONSE_OK)
-    {
-	svg_widget.set_source_file(fc_dialog.get_filename());
-	svg_widget.set_root_group(svg_widget.get_document()->get_root_node());
-    }
+    if(fc_dialog.run() == GTK_RESPONSE_OK) svg_widget.set_source_file(fc_dialog.get_filename());
 }
 
 void App::save_as()
@@ -155,6 +161,12 @@ void App::on_change_root_group()
 	id = "none";
     }
     root_statusbar.push("root: " + id);
+}
+
+void App::on_change_mode()
+{
+    if(cursor_action->get_active()) on_cursor_mode_activate();
+    else if(link_action->get_active()) on_link_mode_activate();
 }
 
 void App::on_cursor_mode_activate()

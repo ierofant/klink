@@ -3,10 +3,10 @@
 
 #include <libxml++/nodes/element.h>
 
-static const xmlpp::Node::PrefixNsMap ns_map(
+static const xmlpp::Node::PrefixNsMap ns_map =
 {
     std::make_pair<Glib::ustring, Glib::ustring>("ksa", "http://nilksa.ru/namespaces/ksa_inkscape_extension")
-});
+};
 
 void remove_node(xmlpp::Node *_node);
 

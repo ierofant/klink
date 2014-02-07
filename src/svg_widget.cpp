@@ -398,11 +398,11 @@ void SvgWidget::remove_element(xmlpp::Element *_element)
     else
     {
 	remove_node(_element);
-	refresh();
 
 	auto app = App::get();
 	if(app->get_mode() == CURSOR) grab_items(get_root_group()->get_children());
     }
+    refresh();
 }
 
 void SvgWidget::remove_link(xmlpp::Element *_link)

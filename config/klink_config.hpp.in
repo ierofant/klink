@@ -1,0 +1,6 @@
+#ifndef KLINK_CONFIG_HPP_INCLUDED
+#define KLINK_CONFIG_HPP_INCLUDED
+
+static const Glib::ustring resource_dir("@KLINK_RESOURCE_DIR@");
+
+#endif //KLINK_CONFIG_HPP_INCLUDED

@@ -4,8 +4,6 @@
 #include "style.hpp"
 #include "support.hpp"
 
-#include <iostream>
-
 LinkRenderer::ElementSet LinkRenderer::get_links() const
 {
     ElementSet elements;

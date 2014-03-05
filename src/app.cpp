@@ -1,10 +1,14 @@
+#include <iostream>
 #include <sstream>
+#include <glibmm/fileutils.h>
 #include <gtkmm/box.h>
 #include <gtkmm/stock.h>
+#include <gtkmm/icontheme.h>
 #include <gtkmm/scrolledwindow.h>
 #include <gtkmm/table.h>
 #include <gtkmm/toolbar.h>
 #include <gtkmm/filechooserdialog.h>
+#include <klink_config.hpp>
 #include "app.hpp"
 
 Glib::RefPtr<App> App::application;
@@ -47,6 +51,17 @@ App::App::App(int _argc, char *_argv[])
       manager(Gtk::UIManager::create()),
       actions(Gtk::ActionGroup::create())
 {
+    try
+    {
+	auto theme = Gtk::IconTheme::get_default();
+	theme->add_builtin_icon("klink-cursor", 32, Gdk::Pixbuf::create_from_file(resource_dir + "/images/cursor.svg"));
+        theme->add_builtin_icon("klink-link", 32, Gdk::Pixbuf::create_from_file(resource_dir + "/images/link.svg"));
+    }
+    catch(Glib::FileError const &_e)
+    {
+	std::cerr << _e.what() << std::endl;
+    }
+
     actions->add(Gtk::Action::create("FileMenu", "Файл"));
     actions->add(Gtk::Action::create("Open", "Открыть"), sigc::mem_fun(*this, &App::open_file));
     actions->add(Gtk::Action::create("Save", "Сохранить"), sigc::mem_fun(*this, &App::save));
@@ -54,15 +69,14 @@ App::App::App(int _argc, char *_argv[])
     actions->add(Gtk::Action::create("Quit", "Выход"), sigc::mem_fun(*this, &App::quit));
 
     Gtk::RadioAction::Group tools_group;
-    auto cursor_action = Gtk::RadioAction::create(tools_group, "Cursor", "C");
-    auto link_action = Gtk::RadioAction::create(tools_group, "Link", "L");
+    auto cursor_action = Gtk::RadioAction::create_with_icon_name(tools_group, "Cursor", "klink-cursor", "cursor", "Выделение и удаление объектов");
+    auto link_action = Gtk::RadioAction::create_with_icon_name(tools_group, "Link", "klink-link", "link", "Рисование соединителей");
     actions->add(cursor_action, sigc::mem_fun(*this, &App::on_change_mode));
     actions->add(link_action);
 
-    actions->add(Gtk::Action::create("GoToTop", Gtk::Stock::GOTO_TOP), sigc::mem_fun(*this, &App::on_goto_top_action_activate));
-    actions->add(Gtk::Action::create("GoUp", Gtk::Stock::GO_UP), sigc::mem_fun(*this, &App::on_go_up_action_activate));
-    actions->add(Gtk::Action::create("GoDown", Gtk::Stock::GO_DOWN), sigc::mem_fun(*this, &App::on_go_down_action_activate));
-
+    actions->add(Gtk::Action::create("GoToTop", Gtk::Stock::GOTO_TOP, "goto-top", "Переход к главной группе"), sigc::mem_fun(*this, &App::on_goto_top_action_activate));
+    actions->add(Gtk::Action::create("GoUp", Gtk::Stock::GO_UP, "go-up", "Переход на группу вверх"), sigc::mem_fun(*this, &App::on_go_up_action_activate));
+    actions->add(Gtk::Action::create("GoDown", Gtk::Stock::GO_DOWN, "go-down", "Переход на группу вниз"), sigc::mem_fun(*this, &App::on_go_down_action_activate));
     actions->get_action("Save")->set_sensitive(false);
 
     manager->insert_action_group(actions);
@@ -70,7 +84,7 @@ App::App::App(int _argc, char *_argv[])
 
     auto *menubar = manager->get_widget("/MenuBar");
     auto *toolsbar = manager->get_widget("/ToolsBar");
-    toolsbar->set_property("toolbar-style", Gtk::TOOLBAR_TEXT);
+    toolsbar->set_property("toolbar-style", Gtk::TOOLBAR_ICONS);
     toolsbar->set_property("orientation", Gtk::ORIENTATION_VERTICAL);
 
     auto *navibar = manager->get_widget("/NavigateBar");

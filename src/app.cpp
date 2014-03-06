@@ -123,8 +123,8 @@ App::App::App(int _argc, char *_argv[])
 void App::open_file()
 {
     Gtk::FileChooserDialog fc_dialog(window, "Выберите файл");
-    fc_dialog.add_button(Gtk::Stock::OK, GTK_RESPONSE_OK);
     fc_dialog.add_button(Gtk::Stock::CANCEL, GTK_RESPONSE_CANCEL);
+    fc_dialog.add_button(Gtk::Stock::OPEN, GTK_RESPONSE_OK);
     if(fc_dialog.run() == GTK_RESPONSE_OK)
     {
 	filename = fc_dialog.get_filename();
@@ -145,8 +145,8 @@ void App::save()
 void App::save_as()
 {
     Gtk::FileChooserDialog fc_dialog(window, "Выберите файл", Gtk::FILE_CHOOSER_ACTION_SAVE);
-    fc_dialog.add_button(Gtk::Stock::OK, GTK_RESPONSE_OK);
     fc_dialog.add_button(Gtk::Stock::CANCEL, GTK_RESPONSE_CANCEL);
+    fc_dialog.add_button(Gtk::Stock::SAVE, GTK_RESPONSE_OK);
     if(fc_dialog.run() == GTK_RESPONSE_OK)
     {
 	auto *doc = svg_widget.get_document();

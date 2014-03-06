@@ -1,5 +1,6 @@
 #include <locale>
 #include <algorithm>
+#include <deque>
 #include "transform.hpp"
 
 Transform::Transform(Glib::ustring const &_str)
@@ -9,15 +10,21 @@ Transform::Transform(Glib::ustring const &_str)
 
 Transform::Transform(xmlpp::Element const &_element, bool _inherit)
 {
-    read(_element.get_attribute_value("transform"));
     if(_inherit)
     {
-	for(const xmlpp::Element *parent = _element.get_parent(); parent; parent = parent->get_parent())
-	{
-	    Transform transform(*parent, false);
-	    merge(transform);
-	}
+	typedef std::deque<Transform> Tlist;
+
+	Tlist tlist;
+	tlist.push_front(Transform(_element.get_attribute_value("transform")));
+	for(const xmlpp::Element *parent = _element.get_parent(); parent; parent = parent->get_parent()) tlist.push_front(Transform(*parent, false));
+
+	*this = tlist.front();
+	
+	Tlist::iterator itr = tlist.begin();
+	++itr;
+	for(; itr != tlist.end(); ++itr) merge(*itr);
     }
+    else read(_element.get_attribute_value("transform"));
 }
 
 Glib::ustring Transform::str() const
@@ -110,12 +117,19 @@ void Transform::reset()
 
 void Transform::merge(Transform const &_transform)
 {
-    a = a * _transform.a;
-    b = b + _transform.b;
-    c = c + _transform.c;
-    d = d * _transform.d;
-    e = e + _transform.e;
-    f = f + _transform.f;
+    double new_a = a * _transform.a + c * _transform.b;
+    double new_b = b * _transform.a + d * _transform.b;
+    double new_c = a * _transform.c + c * _transform.d;
+    double new_d = b * _transform.c + d * _transform.d;
+    double new_e = a * _transform.e + c * _transform.f + e;
+    double new_f = b * _transform.e + d * _transform.f + f;
+
+    a = new_a;
+    b = new_b;
+    c = new_c;
+    d = new_d;
+    e = new_e;
+    f = new_f;
 }
 
 void Transform::matrix(double _a, double _b, double _c, double _d, double _e, double _f)
